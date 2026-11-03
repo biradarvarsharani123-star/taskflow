@@ -15,7 +15,7 @@ class Task(
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    var status: TaskStatus = TaskStatus.TODO,
+    var status: Status = Status.TODO,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
