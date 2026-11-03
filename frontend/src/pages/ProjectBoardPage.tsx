@@ -2,15 +2,19 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getSummary } from '../api/projects'
-import { getTasks, updateTaskStatus } from '../api/tasks'
+import { createTask, deleteTask, getTasks, updateTask, updateTaskStatus } from '../api/tasks'
 import { getErrorMessage } from '../api/client'
 import { PRIORITIES, STATUSES } from '../constants'
-import type { Priority, Status, TaskFilters } from '../types'
+import type { Priority, Status, Task, TaskFilters, TaskInput } from '../types'
 import Spinner from '../components/Spinner'
 import ErrorMessage from '../components/ErrorMessage'
 import EmptyState from '../components/EmptyState'
 import SummaryBar from '../components/SummaryBar'
 import TaskCard from '../components/TaskCard'
+import TaskForm from '../components/TaskForm'
+import Modal from '../components/Modal'
+
+type FormState = { mode: 'create' } | { mode: 'edit'; task: Task } | null
 
 export default function ProjectBoardPage() {
     const { id } = useParams()
@@ -20,6 +24,7 @@ export default function ProjectBoardPage() {
     const [priority, setPriority] = useState<Priority | ''>('')
     const [assignee, setAssignee] = useState('')
     const [direction, setDirection] = useState<'asc' | 'desc'>('asc')
+    const [form, setForm] = useState<FormState>(null)
 
     const filters: TaskFilters = {
         priority: priority || undefined,
@@ -37,16 +42,46 @@ export default function ProjectBoardPage() {
         queryFn: () => getSummary(projectId),
     })
 
+    const refresh = () => {
+        queryClient.invalidateQueries({ queryKey: ['tasks', projectId] })
+        queryClient.invalidateQueries({ queryKey: ['summary', projectId] })
+    }
+
     const changeStatus = useMutation({
         mutationFn: ({ taskId, status }: { taskId: number; status: Status }) =>
             updateTaskStatus(taskId, status),
+        onSuccess: refresh,
+    })
+
+    const save = useMutation({
+        mutationFn: (input: TaskInput) =>
+            form?.mode === 'edit' ? updateTask(form.task.id, input) : createTask(projectId, input),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['tasks', projectId] })
-            queryClient.invalidateQueries({ queryKey: ['summary', projectId] })
+            refresh()
+            setForm(null)
         },
     })
 
+    const remove = useMutation({
+        mutationFn: (taskId: number) => deleteTask(taskId),
+        onSuccess: refresh,
+    })
+
     const items = tasks.data?.content ?? []
+
+    const confirmDelete = (task: Task) => {
+        if (window.confirm(`Delete "${task.title}"?`)) remove.mutate(task.id)
+    }
+
+    const openCreate = () => {
+        save.reset()
+        setForm({ mode: 'create' })
+    }
+
+    const openEdit = (task: Task) => {
+        save.reset()
+        setForm({ mode: 'edit', task })
+    }
 
     return (
         <div className="container">
@@ -57,6 +92,9 @@ export default function ProjectBoardPage() {
                     </Link>
                     <h1>Project board</h1>
                 </div>
+                <button className="btn btn-primary" onClick={openCreate}>
+                    + New task
+                </button>
             </header>
 
             {summary.isError && (
@@ -96,13 +134,14 @@ export default function ProjectBoardPage() {
             {changeStatus.isError && (
                 <div className="alert alert-error">{getErrorMessage(changeStatus.error)}</div>
             )}
+            {remove.isError && <div className="alert alert-error">{getErrorMessage(remove.error)}</div>}
 
             {tasks.isLoading && <Spinner label="Loading tasks..." />}
             {tasks.isError && (
                 <ErrorMessage message={getErrorMessage(tasks.error)} onRetry={() => tasks.refetch()} />
             )}
             {tasks.data && items.length === 0 && (
-                <EmptyState title="No tasks found" hint="Try changing the filters." />
+                <EmptyState title="No tasks found" hint="Create a task or change the filters." />
             )}
 
             {tasks.data && items.length > 0 && (
@@ -121,12 +160,26 @@ export default function ProjectBoardPage() {
                                         task={task}
                                         disabled={changeStatus.isPending}
                                         onStatusChange={(status) => changeStatus.mutate({ taskId: task.id, status })}
+                                        onEdit={() => openEdit(task)}
+                                        onDelete={() => confirmDelete(task)}
                                     />
                                 ))}
                             </section>
                         )
                     })}
                 </div>
+            )}
+
+            {form && (
+                <Modal title={form.mode === 'edit' ? 'Edit task' : 'New task'} onClose={() => setForm(null)}>
+                    <TaskForm
+                        initial={form.mode === 'edit' ? form.task : undefined}
+                        submitting={save.isPending}
+                        serverError={save.isError ? getErrorMessage(save.error) : undefined}
+                        onSubmit={(input) => save.mutate(input)}
+                        onCancel={() => setForm(null)}
+                    />
+                </Modal>
             )}
         </div>
     )

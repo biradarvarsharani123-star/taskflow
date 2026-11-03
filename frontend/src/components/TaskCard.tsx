@@ -4,10 +4,14 @@ import type { Status, Task } from '../types'
 export default function TaskCard({
                                      task,
                                      onStatusChange,
+                                     onEdit,
+                                     onDelete,
                                      disabled,
                                  }: {
     task: Task
     onStatusChange: (status: Status) => void
+    onEdit: () => void
+    onDelete: () => void
     disabled?: boolean
 }) {
     return (
@@ -41,6 +45,15 @@ export default function TaskCard({
                     </option>
                 ))}
             </select>
+
+            <div className="task-actions">
+                <button className="btn btn-small" onClick={onEdit}>
+                    Edit
+                </button>
+                <button className="btn btn-small btn-danger" onClick={onDelete}>
+                    Delete
+                </button>
+            </div>
         </div>
     )
 }

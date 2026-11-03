@@ -97,3 +97,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #6366f1; border-c
   .board { grid-template-columns: 1fr; }
   .summary-bar { grid-template-columns: repeat(2, 1fr); }
 }
+.task-actions { display: flex; gap: 8px; }
+.btn-small { padding: 5px 10px; font-size: 0.85rem; }
+.btn-danger { color: #b91c1c; border-color: #fecaca; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
