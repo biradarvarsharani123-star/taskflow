@@ -1,4 +1,12 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+
+import {
+    createContext,
+    useContext,
+    useMemo,
+    useState,
+    type ReactNode,
+} from 'react'
+
 import { tokenStorage } from '../api/client'
 import * as authApi from '../api/auth'
 import type { AuthResponse } from '../types'
@@ -17,12 +25,16 @@ interface AuthContextValue {
 }
 
 const USER_KEY = 'taskflow_user'
+
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 function loadUser(): User | null {
     try {
         const raw = localStorage.getItem(USER_KEY)
-        return raw && tokenStorage.get() ? (JSON.parse(raw) as User) : null
+
+        return raw && tokenStorage.get()
+            ? (JSON.parse(raw) as User)
+            : null
     } catch {
         return null
     }
@@ -33,7 +45,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const save = (res: AuthResponse) => {
         tokenStorage.set(res.token)
-        const u = { name: res.name, email: res.email }
+
+        const u = {
+            name: res.name,
+            email: res.email,
+        }
+
         localStorage.setItem(USER_KEY, JSON.stringify(u))
         setUser(u)
     }
@@ -42,23 +59,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         () => ({
             user,
             isAuthenticated: user !== null,
-            login: async (email, password) => save(await authApi.login(email, password)),
-            register: async (name, email, password) =>
-                save(await authApi.register(name, email, password)),
+
+            login: async (email, password) => {
+                const response = await authApi.login(email, password)
+                save(response)
+            },
+
+            register: async (name, email, password) => {
+                const response = await authApi.register(name, email, password)
+                save(response)
+            },
+
             logout: () => {
                 tokenStorage.clear()
+                localStorage.removeItem(USER_KEY)
                 setUser(null)
             },
         }),
         [user],
     )
 
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+    return (
+        <AuthContext.Provider value={value}>
+            {children}
+        </AuthContext.Provider>
+    )
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
     const ctx = useContext(AuthContext)
-    if (!ctx) throw new Error('useAuth must be used inside AuthProvider')
+
+    if (!ctx) {
+        throw new Error('useAuth must be used inside AuthProvider')
+    }
+
     return ctx
 }
